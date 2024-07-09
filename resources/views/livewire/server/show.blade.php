@@ -2,6 +2,7 @@
     <x-slot:title>
         {{ data_get_str($server, 'name')->limit(10) }} > Server Configurations | Coolify
     </x-slot>
+    <h1> Server id : {{ $server->id }} </h1>
     <x-server.navbar :server="$server" :parameters="$parameters" />
     <livewire:server.form :server="$server" />
     @if ($server->isFunctional() && $server->isMetricsEnabled())
