@@ -69,14 +69,14 @@ class ServerStatusJob implements ShouldBeEncrypted, ShouldQueue
             'docker info',
         ], $this->server, false);
         if (is_null($version)) {
-            $os = instant_remote_process([
-                'cat /etc/os-release | grep ^ID=',
-            ], $this->server, false);
-            $os = str($os)->after('ID=')->trim();
-            if ($os === 'ubuntu') {
+            // Check for Darwin (MacOS) based systems
+            $os = instant_remote_process(['uname -s'], $this->server, false);
+            $os = str($os)->lower()->trim();
+            if ($os === 'darwin') {
+                // Assuming brew is installed on the system
                 try {
                     instant_remote_process([
-                        'systemctl start docker',
+                        'colima start',
                     ], $this->server);
                 } catch (\Throwable $e) {
                     ray($e->getMessage());
@@ -84,14 +84,30 @@ class ServerStatusJob implements ShouldBeEncrypted, ShouldQueue
                     return handleError($e);
                 }
             } else {
-                try {
-                    instant_remote_process([
-                        'service docker start',
-                    ], $this->server);
-                } catch (\Throwable $e) {
-                    ray($e->getMessage());
+                $os = instant_remote_process([
+                    'cat /etc/os-release | grep ^ID=',
+                ], $this->server, false);
+                $os = str($os)->after('ID=')->trim();
+                if ($os === 'ubuntu') {
+                    try {
+                        instant_remote_process([
+                            'systemctl start docker',
+                        ], $this->server);
+                    } catch (\Throwable $e) {
+                        ray($e->getMessage());
 
-                    return handleError($e);
+                        return handleError($e);
+                    }
+                } else {
+                    try {
+                        instant_remote_process([
+                            'service docker start',
+                        ], $this->server);
+                    } catch (\Throwable $e) {
+                        ray($e->getMessage());
+
+                        return handleError($e);
+                    }
                 }
             }
         }

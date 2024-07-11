@@ -73,24 +73,52 @@ class InstallDocker
                     'command -v git >/dev/null || zypper install -y git',
                     'command -v jq >/dev/null || zypper install -y jq',
                 ]);
+            } elseif ($supported_os_type->contains('darwin')) {
+                $command = $command->merge([
+                    "echo 'Installing Prerequisites...'",
+                    'if ! command -v brew &> /dev/null; then /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; fi',
+                    'brew update',
+                    'command -v curl >/dev/null || brew install curl',
+                    'command -v wget >/dev/null || brew install wget',
+                    'command -v git >/dev/null || brew install git',
+                    'command -v jq >/dev/null || brew install jq',
+                ]);
             } else {
                 throw new \Exception('Unsupported OS');
             }
-            $command = $command->merge([
-                "echo 'Installing Docker Engine...'",
-                "curl https://releases.rancher.com/install-docker/{$dockerVersion}.sh | sh || curl https://get.docker.com | sh -s -- --version {$dockerVersion}",
-                "echo 'Configuring Docker Engine (merging existing configuration with the required)...'",
-                'test -s /etc/docker/daemon.json && cp /etc/docker/daemon.json "/etc/docker/daemon.json.original-$(date +"%Y%m%d-%H%M%S")"',
-                "test ! -s /etc/docker/daemon.json && echo '{$config}' | base64 -d | tee /etc/docker/daemon.json > /dev/null",
-                "echo '{$config}' | base64 -d | tee /etc/docker/daemon.json.coolify > /dev/null",
-                'jq . /etc/docker/daemon.json.coolify | tee /etc/docker/daemon.json.coolify.pretty > /dev/null',
-                'mv /etc/docker/daemon.json.coolify.pretty /etc/docker/daemon.json.coolify',
-                "jq -s '.[0] * .[1]' /etc/docker/daemon.json.coolify /etc/docker/daemon.json | tee /etc/docker/daemon.json.appended > /dev/null",
-                'mv /etc/docker/daemon.json.appended /etc/docker/daemon.json',
-                "echo 'Restarting Docker Engine...'",
-                'systemctl enable docker >/dev/null 2>&1 || true',
-                'systemctl restart docker',
-            ]);
+            if ($supported_os_type === 'darwin') {
+                $command = $command->merge([
+                    "echo 'Installing Docker (Colima)'",
+                    'brew install docker docker-buildx colima', // TODO: Install the correct version
+                    'docker version',
+                    "echo 'Configuring Docker Engine (merging existing configuration with the required)...'",
+                    'test -s ~/.docker/daemon.json && cp ~/.docker/daemon.json "~/.docker/daemon.json.original-$(date +"%Y%m%d-%H%M%S")"',
+                    "test ! -s ~/.docker/daemon.json && echo '{$config}' | base64 -d | tee ~/.docker/daemon.json > /dev/null",
+                    "echo '{$config}' | base64 -d | tee ~/.docker/daemon.json.coolify > /dev/null",
+                    'jq . ~/.docker/daemon.json.coolify | tee ~/.docker/daemon.json.coolify.pretty > /dev/null',
+                    'mv ~/.docker/daemon.json.coolify.pretty ~/.docker/daemon.json.coolify',
+                    "jq -s '.[0] * .[1]' ~/.docker/daemon.json.coolify ~/.docker/daemon.json | tee ~/.docker/daemon.json.appended > /dev/null",
+                    'mv ~/.docker/daemon.json.appended ~/.docker/daemon.json',
+                    "echo 'Restarting Docker Engine...'",
+                    'colima restart',
+                ]);
+            } else {
+                $command = $command->merge([
+                    "echo 'Installing Docker Engine...'",
+                    "curl https://releases.rancher.com/install-docker/{$dockerVersion}.sh | sh || curl https://get.docker.com | sh -s -- --version {$dockerVersion}",
+                    "echo 'Configuring Docker Engine (merging existing configuration with the required)...'",
+                    'test -s /etc/docker/daemon.json && cp /etc/docker/daemon.json "/etc/docker/daemon.json.original-$(date +"%Y%m%d-%H%M%S")"',
+                    "test ! -s /etc/docker/daemon.json && echo '{$config}' | base64 -d | tee /etc/docker/daemon.json > /dev/null",
+                    "echo '{$config}' | base64 -d | tee /etc/docker/daemon.json.coolify > /dev/null",
+                    'jq . /etc/docker/daemon.json.coolify | tee /etc/docker/daemon.json.coolify.pretty > /dev/null',
+                    'mv /etc/docker/daemon.json.coolify.pretty /etc/docker/daemon.json.coolify',
+                    "jq -s '.[0] * .[1]' /etc/docker/daemon.json.coolify /etc/docker/daemon.json | tee /etc/docker/daemon.json.appended > /dev/null",
+                    'mv /etc/docker/daemon.json.appended /etc/docker/daemon.json',
+                    "echo 'Restarting Docker Engine...'",
+                    'systemctl enable docker >/dev/null 2>&1 || true',
+                    'systemctl restart docker',
+                ]);
+            }
             if ($server->isSwarm()) {
                 $command = $command->merge([
                     'docker network create --attachable --driver overlay coolify-overlay >/dev/null 2>&1 || true',

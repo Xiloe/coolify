@@ -40,6 +40,8 @@ const SUPPORTED_OS = [
     'ubuntu debian raspbian',
     'centos fedora rhel ol rocky amzn almalinux',
     'sles opensuse-leap opensuse-tumbleweed',
+    // MacOS based systems
+    'darwin',
 ];
 
 const SHARED_VARIABLE_TYPES = ['team', 'project', 'environment'];

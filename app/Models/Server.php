@@ -490,7 +490,6 @@ $schema://$host {
                 ray($process->exitCode(), $process->output(), $process->errorOutput());
                 throw new \Exception("Server API is not reachable on http://{$server_ip}:12172");
             }
-
         }
     }
 
@@ -870,6 +869,14 @@ $schema://$host {
 
     public function validateOS(): bool|Stringable
     {
+        // Check for Darwin
+        $os_release = instant_remote_process(['uname -s'], $this);
+        $os_release = str($os_release)->lower()->trim();
+        if ($os_release === 'darwin') {
+            return 'darwin';
+        }
+
+        // Else, continue with the normal flow
         $os_release = instant_remote_process(['cat /etc/os-release'], $this);
         $releaseLines = collect(explode("\n", $os_release));
         $collectedData = collect([]);
